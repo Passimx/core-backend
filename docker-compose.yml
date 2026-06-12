@@ -1,17 +1,26 @@
 version: "3.9"
 
 services:
-  xray-wrapper:
-    build: .
-    container_name: xray-wrapper
+  postgres:
+    image: postgres:17-alpine
+    container_name: passimx-core-postgres
     restart: always
     env_file: .env
+    environment:
+      POSTGRES_DB: ${PG_DATABASE}
+      POSTGRES_USER: ${PG_USERNAME}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    command: -p ${PG_PORT}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    expose:
+      - ${PG_PORT}
     ports:
-      - ${XRAY_WRAPPER_PORT:-443}:${XRAY_WRAPPER_PORT:-443}
+      - ${PG_PORT}:${PG_PORT}
     networks:
-      - xray
+      - main
 
 networks:
-  xray:
-    name: xray
+  main:
+    name: main
     external: true
