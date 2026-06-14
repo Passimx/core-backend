@@ -9,47 +9,43 @@ import { SessionEntity } from '../../database/entities/session.entity';
 export class CustomWebSocketClient {
   public id: string;
   public chatNames: Set<string>;
+  public sessions: TokenType[];
   private pingTimeout: number | null;
 
   constructor(
     private readonly wsServer: WsServer,
-    private sessions: TokenType[],
     private readonly socket: ClientSocket,
     private readonly em: EntityManager,
+    sessions: TokenType[],
   ) {
     this.id = this.createConnectionId(wsServer);
     this.chatNames = new Set<string>();
     this.pingTimeout = null;
+    this.sessions = sessions;
   }
 
   public static async createInstance(
-    tokenPayloads: TokenType[],
-    socket: ClientSocket,
     wsServer: WsServer,
     em: EntityManager,
+    socket: ClientSocket,
+    sessions: TokenType[],
   ) {
-    const instance = new CustomWebSocketClient(
-      wsServer,
-      tokenPayloads,
-      socket,
-      em,
-    );
+    const instance = new CustomWebSocketClient(wsServer, socket, em, sessions);
     socket.client = instance;
     socket.id = instance.id;
 
     wsServer.joinConnection(socket);
-    tokenPayloads.forEach(({ userId }) =>
-      wsServer.joinUserRoom(socket, userId),
-    );
+    sessions.forEach(({ userId }) => wsServer.joinUserRoom(socket, userId));
     instance.setPingTimeout();
     instance.emit(EventsEnum.PONG);
 
-    const sessionIds = tokenPayloads.map(({ sessionId }) => sessionId);
+    const sessionIds = sessions.map(({ sessionId }) => sessionId);
     await em.update(SessionEntity, { id: In(sessionIds) }, { isOnline: true });
 
-    for (const session of tokenPayloads) {
+    for (const session of sessions) {
       const sessions = await em.find(SessionEntity, {
         where: { userId: session.userId },
+        order: { updatedAt: 'DESC' },
       });
       wsServer
         .toUserRoom(session.userId)
@@ -73,7 +69,6 @@ export class CustomWebSocketClient {
       this.sessions.forEach(({ userId }) =>
         this.wsServer?.leaveConnection(this.socket, userId),
       );
-      console.log(this.wsServer);
     }, Envs.app.pingTime);
   }
 
@@ -86,7 +81,10 @@ export class CustomWebSocketClient {
     );
 
     for (const { userId } of this.sessions) {
-      const sessions = await this.em.find(SessionEntity, { where: { userId } });
+      const sessions = await this.em.find(SessionEntity, {
+        where: { userId },
+        order: { updatedAt: 'DESC' },
+      });
       this.wsServer
         .toUserRoom(userId)
         .emit(EventsEnum.UPDATE_USER, { id: userId, sessions });
@@ -117,6 +115,7 @@ export class CustomWebSocketClient {
     await this.em.delete(SessionEntity, { id: session.id });
     const sessions = await this.em.find(SessionEntity, {
       where: { userId: session.userId },
+      order: { updatedAt: 'DESC' },
     });
 
     this.emit(EventsEnum.LOGOUT, { sessionId: session.id });

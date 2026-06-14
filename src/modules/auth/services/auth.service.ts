@@ -15,12 +15,13 @@ export class AuthService {
     try {
       const payload = await this.jwtService.verifyAsync<TokenType>(token);
 
-      await this.em.findOneOrFail(SessionEntity, {
+      const session = await this.em.findOne(SessionEntity, {
         where: {
           id: payload.sessionId,
           userId: payload.userId,
         },
       });
+      if (!session) return undefined;
 
       return payload;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars

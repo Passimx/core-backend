@@ -43,23 +43,23 @@ export class SocketGateway implements OnGatewayDisconnect {
     @ConnectedSocket() socket: ClientSocket,
     @Body() tokens: string[],
   ) {
-    const tokenPayloads: TokenType[] = [];
+    const sessions: TokenType[] = [];
     for (const token of tokens) {
       const tokenPayload = await this.authService.verifyTokenAsync(token);
-      if (tokenPayload) tokenPayloads.push(tokenPayload);
+      if (tokenPayload) sessions.push(tokenPayload);
       else
         socket.send(
           JSON.stringify({ event: EventsEnum.LOGOUT, data: { token } }),
         );
     }
 
-    if (!tokenPayloads.length) return socket.close();
+    if (!sessions.length) return socket.close();
 
     await CustomWebSocketClient.createInstance(
-      tokenPayloads,
-      socket,
       this.wsServer,
       this.em,
+      socket,
+      sessions,
     );
   }
 
@@ -74,6 +74,6 @@ export class SocketGateway implements OnGatewayDisconnect {
     @ConnectedSocket() socket: ClientSocket,
     @MessageBody() body: { data: SendMessageDto },
   ) {
-    return this.messagesService.onMessage(body.data);
+    return this.messagesService.onMessage(socket, body.data);
   }
 }

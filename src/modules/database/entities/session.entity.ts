@@ -1,5 +1,6 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -24,6 +25,9 @@ export class SessionEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   readonly updatedAt: Date;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  readonly createdAt: Date;
 
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: 'user_id' })

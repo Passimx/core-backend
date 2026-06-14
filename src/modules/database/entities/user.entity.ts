@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
+import { PeriodEnum } from '../types/period.enum';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -38,6 +39,14 @@ export class UserEntity {
     length: 2 ** 14,
   })
   readonly encryptedRsaPrivateKey!: string;
+
+  @Column({
+    name: 'auto_terminate_session',
+    type: 'enum',
+    enum: PeriodEnum,
+    default: PeriodEnum.SIX_MONTH,
+  })
+  readonly autoTerminateSession: PeriodEnum;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   readonly createdAt: Date;
