@@ -7,15 +7,12 @@ import { DataResponse } from '../../../common/dto/data-response.dto';
 import { MessageErrorEnum } from '../../../common/types/message-error.enum';
 import { ChatKeyEntity } from '../../database/entities/chat-key.entity';
 import { ChatEnum } from '../../database/types/chat.enum';
-import { TokenType } from '../types/token.type';
-import { JwtService } from '@nestjs/jwt';
-import { TokenDto } from '../dto/requests/token.dto';
-import { SessionEntity } from '../../database/entities/session.entity';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class UsersService {
   constructor(
-    private readonly jwtService: JwtService,
+    private readonly authService: AuthService,
     private readonly em: EntityManager,
   ) {}
 
@@ -40,19 +37,7 @@ export class UsersService {
       userId: id,
     });
 
-    const session: Partial<SessionEntity> = {
-      userId: newUser.id!,
-      encryptionUserAgent: body.encryptionUserAgent,
-    };
-    await this.em.insert(SessionEntity, session);
-
-    const payload: TokenType = {
-      sessionId: session.id!,
-      userId: id,
-    };
-
-    const token = await this.jwtService.signAsync(payload);
-    return new DataResponse<TokenDto>({ token, sessionId: session.id! });
+    return this.authService.login(id, body.encryptionUserAgent);
   }
 
   public async getUserById(

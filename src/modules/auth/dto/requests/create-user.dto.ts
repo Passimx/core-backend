@@ -26,4 +26,9 @@ export class CreateUserDto {
   @MaxLength(2 ** 12)
   @MinLength(2)
   readonly encryptionUserAgent!: string;
+
+  @IsString()
+  @MaxLength(2 ** 6)
+  @MinLength(2)
+  readonly seedPhraseHash!: string;
 }

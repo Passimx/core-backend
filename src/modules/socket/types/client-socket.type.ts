@@ -9,48 +9,65 @@ import { SessionEntity } from '../../database/entities/session.entity';
 export class CustomWebSocketClient {
   public id: string;
   public chatNames: Set<string>;
-  public sessions: TokenType[];
+  public sessions: Map<string, TokenType>; // sessionId -> TokenType[]
+
+  public rsaPublicKeyString: string | null;
   private pingTimeout: number | null;
 
   constructor(
     private readonly wsServer: WsServer,
     private readonly socket: ClientSocket,
     private readonly em: EntityManager,
-    sessions: TokenType[],
   ) {
     this.id = this.createConnectionId(wsServer);
     this.chatNames = new Set<string>();
+    this.sessions = new Map<string, TokenType>();
     this.pingTimeout = null;
-    this.sessions = sessions;
   }
 
-  public static async createInstance(
+  public async verify(tokenPayloads: TokenType[]) {
+    const newSessions = tokenPayloads.filter((session) => {
+      const { userId, sessionId } = session;
+      if (this.sessions.has(sessionId)) return false;
+
+      this.sessions.set(sessionId, session);
+      this.wsServer.joinUserRoom(this.socket, userId);
+      return true;
+    });
+
+    if (!newSessions.length) return;
+
+    const sessionIds = newSessions.map(({ sessionId }) => sessionId);
+    await this.em.update(
+      SessionEntity,
+      { id: In(sessionIds) },
+      { isOnline: true },
+    );
+
+    for (const session of newSessions) {
+      const sessions = await this.em.find(SessionEntity, {
+        where: { userId: session.userId },
+        order: { updatedAt: 'DESC' },
+      });
+
+      this.wsServer
+        .toUserRoom(session.userId)
+        .emit(EventsEnum.UPDATE_USER, { id: session.userId, sessions });
+    }
+  }
+
+  public static createInstance(
     wsServer: WsServer,
     em: EntityManager,
     socket: ClientSocket,
-    sessions: TokenType[],
   ) {
-    const instance = new CustomWebSocketClient(wsServer, socket, em, sessions);
+    const instance = new CustomWebSocketClient(wsServer, socket, em);
     socket.client = instance;
     socket.id = instance.id;
 
     wsServer.joinConnection(socket);
-    sessions.forEach(({ userId }) => wsServer.joinUserRoom(socket, userId));
     instance.setPingTimeout();
     instance.emit(EventsEnum.PONG);
-
-    const sessionIds = sessions.map(({ sessionId }) => sessionId);
-    await em.update(SessionEntity, { id: In(sessionIds) }, { isOnline: true });
-
-    for (const session of sessions) {
-      const sessions = await em.find(SessionEntity, {
-        where: { userId: session.userId },
-        order: { updatedAt: 'DESC' },
-      });
-      wsServer
-        .toUserRoom(session.userId)
-        .emit(EventsEnum.UPDATE_USER, { id: session.userId, sessions });
-    }
   }
 
   public createConnectionId(wsServer: WsServer): string {
@@ -66,30 +83,36 @@ export class CustomWebSocketClient {
     this.pingTimeout = setTimeout(() => {
       this.socket.close();
 
-      this.sessions.forEach(({ userId }) =>
+      this.sessions?.forEach(({ userId }) =>
         this.wsServer?.leaveConnection(this.socket, userId),
       );
     }, Envs.app.pingTime);
   }
 
   public async leaveConnection() {
-    const sessionIds = this.sessions.map(({ sessionId }) => sessionId);
-    await this.em.update(
-      SessionEntity,
-      { id: In(sessionIds) },
-      { isOnline: false },
-    );
+    const sessions = Array.from(this.sessions.values());
 
-    for (const { userId } of this.sessions) {
-      const sessions = await this.em.find(SessionEntity, {
-        where: { userId },
-        order: { updatedAt: 'DESC' },
-      });
-      this.wsServer
-        .toUserRoom(userId)
-        .emit(EventsEnum.UPDATE_USER, { id: userId, sessions });
+    const sessionIds = sessions?.map(({ sessionId }) => sessionId);
 
-      this.wsServer.leaveConnection(this.socket, userId);
+    if (sessionIds?.length) {
+      await this.em.update(
+        SessionEntity,
+        { id: In(sessionIds) },
+        { isOnline: false },
+      );
+
+      for (const { userId } of sessions) {
+        const sessionsFromDb = await this.em.find(SessionEntity, {
+          where: { userId },
+          order: { updatedAt: 'DESC' },
+        });
+        this.wsServer.toUserRoom(userId).emit(EventsEnum.UPDATE_USER, {
+          id: userId,
+          sessions: sessionsFromDb,
+        });
+
+        this.wsServer.leaveConnection(this.socket, userId);
+      }
     }
 
     this.socket.close();
@@ -103,36 +126,22 @@ export class CustomWebSocketClient {
   }
 
   public emit(event: EventsEnum, data?: unknown) {
-    this.wsServer.toConnection(this.id)?.emit(event, data);
+    this.socket.send(JSON.stringify({ event, data }));
   }
 
-  public async logout(session: SessionEntity) {
-    const idExists = !!this.sessions.find(
-      ({ sessionId }) => sessionId === session.id,
-    );
-    if (!idExists) return;
+  public logout(deletedSessions: SessionEntity[]) {
+    const sessions = Array.from(this.sessions.values());
 
-    await this.em.delete(SessionEntity, { id: session.id });
-    const sessions = await this.em.find(SessionEntity, {
-      where: { userId: session.userId },
-      order: { updatedAt: 'DESC' },
-    });
+    for (const deletedSession of deletedSessions) {
+      const currentSession = sessions.find(
+        (session) => session.sessionId === deletedSession.id,
+      );
+      if (!currentSession) return;
 
-    this.emit(EventsEnum.LOGOUT, { sessionId: session.id });
-
-    this.wsServer.leaveUserRoom(this.socket, session.userId);
-
-    this.wsServer
-      .toUserRoom(session.userId)
-      .emit(EventsEnum.UPDATE_USER, { id: session.userId, sessions });
-
-    const newSessionList: TokenType[] = this.sessions.filter(
-      (payload) => payload.sessionId !== session.id,
-    );
-    this.sessions = newSessionList;
-
-    if (!newSessionList.length)
-      this.wsServer.leaveConnection(this.socket, session.userId);
+      this.emit(EventsEnum.LOGOUT, { sessionId: currentSession.sessionId });
+      this.wsServer.leaveUserRoom(this.socket, currentSession.userId);
+      this.sessions.delete(currentSession.sessionId);
+    }
   }
 }
 

@@ -1,5 +1,6 @@
-export class TokenDto {
-  readonly token: string;
+import { UserEntity } from '../../../database/entities/user.entity';
 
-  readonly sessionId: string;
-}
+export type TokenDto = Partial<UserEntity> & {
+  token: string;
+  sessionId: string;
+};

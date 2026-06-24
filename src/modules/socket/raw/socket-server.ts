@@ -2,9 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { ClientSocket } from '../types/client-socket.type';
 import { EventsEnum } from '../types/event.enum';
 import { ChatRoomType } from '../types/chat-room.type';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class WsServer {
+  constructor(private readonly em: EntityManager) {}
+
   public connections: Map<string, ClientSocket> = new Map(); // connectionId -> connection[]
   public userRooms: Map<string, Set<string>> = new Map(); // userId -> connectionId[]
   public chats: Map<string, ChatRoomType> = new Map();
@@ -34,7 +37,7 @@ export class WsServer {
     const userRoom = this.userRooms.get(userId) ?? new Set<string>();
     userRoom.delete(connectionName);
 
-    if (userRoom.size > 1) this.userRooms.set(userId, userRoom);
+    if (userRoom.size > 0) this.userRooms.set(userId, userRoom);
     else this.userRooms.delete(userId);
   }
 
@@ -119,10 +122,12 @@ export class WsServer {
   }
 
   public emit(event: EventsEnum, data: unknown): void {
-    if (!this.selectedClients.size) return;
-    this.selectedClients.forEach((client) =>
-      client?.send(JSON.stringify({ event, data })),
-    );
+    const payload = { event, data };
+
+    if (this.selectedClients.size)
+      this.selectedClients.forEach((client) =>
+        client?.send(JSON.stringify(payload)),
+      );
   }
 
   public toConnection(connectionName: string) {
@@ -140,6 +145,7 @@ export class WsServer {
       userRooms,
       chats,
       selectedClients,
+      this.em,
     );
   }
 
@@ -162,6 +168,7 @@ export class WsServer {
       userRooms,
       chats,
       selectedClients,
+      this.em,
     );
   }
 
@@ -191,6 +198,7 @@ export class WsServer {
       userRooms,
       chats,
       selectedClients,
+      this.em,
     );
   }
 
@@ -199,8 +207,9 @@ export class WsServer {
     userRooms: Map<string, Set<string>>,
     chats: Map<string, ChatRoomType>,
     selectedClients: Set<ClientSocket>,
+    em: EntityManager,
   ): WsServer {
-    const instance = new WsServer();
+    const instance = new WsServer(em);
     instance.connections = connections;
     instance.userRooms = userRooms;
     instance.chats = chats;
