@@ -5,6 +5,7 @@ import { EventsEnum } from './event.enum';
 import { randomUUID } from 'node:crypto';
 import { EntityManager, In } from 'typeorm';
 import { SessionEntity } from '../../database/entities/session.entity';
+import { AuthService } from '../../auth/services/auth.service';
 
 export class CustomWebSocketClient {
   public id: string;
@@ -25,7 +26,7 @@ export class CustomWebSocketClient {
     this.pingTimeout = null;
   }
 
-  public async verify(tokenPayloads: TokenType[]) {
+  public async verify(tokenPayloads: TokenType[], authService: AuthService) {
     const newSessions = tokenPayloads.filter((session) => {
       const { userId, sessionId } = session;
       if (this.sessions.has(sessionId)) return false;
@@ -45,14 +46,11 @@ export class CustomWebSocketClient {
     );
 
     for (const session of newSessions) {
-      const sessions = await this.em.find(SessionEntity, {
-        where: { userId: session.userId },
-        order: { updatedAt: 'DESC' },
-      });
+      const user = await authService.getMe(session.userId);
 
       this.wsServer
         .toUserRoom(session.userId)
-        .emit(EventsEnum.UPDATE_USER, { id: session.userId, sessions });
+        .emit(EventsEnum.UPDATE_USER, user);
     }
   }
 

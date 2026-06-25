@@ -30,7 +30,6 @@ export class AsyncMessagesService {
         response = connection?.client.rsaPublicKeyString;
 
         break;
-
       case EventsEnum.LOGIN:
         const seedPhraseHash = data.seedPhraseHash;
         if (!seedPhraseHash?.length || !data.id?.length) {
@@ -43,13 +42,14 @@ export class AsyncMessagesService {
           break;
         }
 
-        const responseLogin = await this.authService.login(
+        response = await this.authService.login(
           data.id,
           data.encryptionUserAgent,
         );
 
-        if (responseLogin.success) response = responseLogin.data;
-        else response = null;
+        break;
+      case EventsEnum.CREATE_USER:
+        response = await this.authService.createUser(data);
 
         break;
     }

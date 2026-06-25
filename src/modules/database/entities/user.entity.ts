@@ -29,14 +29,6 @@ export class UserEntity {
   })
   readonly lastName: string;
 
-  @Column({
-    name: 'language_code',
-    type: 'varchar',
-    length: 2 ** 1,
-    default: 'en',
-  })
-  readonly languageCode: string;
-
   @Column({ name: 'rsa_public_key', type: 'varchar', length: 2 ** 12 })
   readonly rsaPublicKey: string;
 

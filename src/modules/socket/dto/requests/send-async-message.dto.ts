@@ -1,5 +1,10 @@
 import { EventsEnum } from '../../types/event.enum';
 import { LoginDto } from '../../../auth/dto/requests/login.dto';
+import { UserEntity } from '../../../database/entities/user.entity';
+
+export type CreateUserType = Partial<UserEntity> & {
+  encryptionUserAgent: string;
+};
 
 type GetConnectionRsaPublicKeyString = {
   event: EventsEnum.GET_CONNECTION_RSA_PUBLIC_KEY_STRING;
@@ -11,4 +16,12 @@ type LoginType = {
   data: LoginDto;
 };
 
-export type SendAsyncMessageDto = GetConnectionRsaPublicKeyString | LoginType;
+type CreateUser = {
+  event: EventsEnum.CREATE_USER;
+  data: CreateUserType;
+};
+
+export type SendAsyncMessageDto =
+  | GetConnectionRsaPublicKeyString
+  | LoginType
+  | CreateUser;

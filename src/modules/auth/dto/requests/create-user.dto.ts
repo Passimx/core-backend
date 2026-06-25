@@ -18,11 +18,6 @@ export class CreateUserDto {
   readonly encryptedRsaPrivateKey!: string;
 
   @IsString()
-  @MaxLength(2 ** 1)
-  @MinLength(2 ** 1)
-  readonly languageCode: string;
-
-  @IsString()
   @MaxLength(2 ** 12)
   @MinLength(2)
   readonly encryptionUserAgent!: string;

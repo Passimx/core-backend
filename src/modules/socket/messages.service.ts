@@ -89,7 +89,7 @@ export class MessagesService {
         }
 
         if (!tokenPayloads.length) return;
-        await socket.client.verify(tokenPayloads);
+        await socket.client.verify(tokenPayloads, this.authService);
 
         break;
 
