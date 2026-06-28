@@ -13,7 +13,7 @@ export class CustomWebSocketClient {
   public sessions: Map<string, TokenType>; // sessionId -> TokenType[]
 
   public rsaPublicKeyString: string | null;
-  private pingTimeout: number | null;
+  private pingTimeout: NodeJS.Timeout | null;
 
   constructor(
     private readonly wsServer: WsServer,
@@ -84,7 +84,7 @@ export class CustomWebSocketClient {
       this.sessions?.forEach(({ userId }) =>
         this.wsServer?.leaveConnection(this.socket, userId),
       );
-    }, Envs.app.pingTime);
+    }, Envs.app.pingTime) as unknown as NodeJS.Timeout;
   }
 
   public async leaveConnection() {
