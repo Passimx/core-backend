@@ -11,5 +11,7 @@ export enum EventsEnum {
   SET_STATE_APP = 'set_state_app',
   VERIFY = 'verify',
 
+  GET_APPS = 'get_apps',
+
   RESEND_ASYNC_MESSAGE = 'resend_async_message',
 }

@@ -5,6 +5,7 @@ import type { ClientSocket } from './types/client-socket.type';
 import { SendAsyncMessageDto } from './dto/requests/send-async-message.dto';
 import { EventsEnum } from './types/event.enum';
 import { AuthService } from '../auth/services/auth.service';
+import { AppEntity } from '../database/entities/app.entity';
 
 @Injectable()
 export class AsyncMessagesService {
@@ -25,6 +26,10 @@ export class AsyncMessagesService {
     const { event, data } = body;
 
     switch (event) {
+      case EventsEnum.GET_APPS:
+        response = await this.em.find(AppEntity);
+        break;
+
       case EventsEnum.GET_CONNECTION_RSA_PUBLIC_KEY_STRING:
         const connection = this.wsServer.connections.get(data);
         response = connection?.client.rsaPublicKeyString;

@@ -21,7 +21,13 @@ type CreateUser = {
   data: CreateUserType;
 };
 
+type GetApps = {
+  event: EventsEnum.GET_APPS;
+  data: unknown;
+};
+
 export type SendAsyncMessageDto =
   | GetConnectionRsaPublicKeyString
   | LoginType
-  | CreateUser;
+  | CreateUser
+  | GetApps;

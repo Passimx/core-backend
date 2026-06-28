@@ -6,9 +6,6 @@ import { SessionEntity } from '../../database/entities/session.entity';
 import { UserEntity } from '../../database/entities/user.entity';
 import { TokenDto } from '../dto/requests/token.dto';
 import { CryptoUtils } from '../../../common/utils/crypto.utils';
-import { ChatEntity } from '../../database/entities/chat.entity';
-import { ChatEnum } from '../../database/types/chat.enum';
-import { ChatKeyEntity } from '../../database/entities/chat-key.entity';
 import { CreateUserType } from '../../socket/dto/requests/send-async-message.dto';
 
 @Injectable()
@@ -45,16 +42,6 @@ export class AuthService {
 
     const newUser: Partial<UserEntity> = { id, ...payload };
     await this.em.insert(UserEntity, newUser);
-
-    await this.em.insert(ChatEntity, { title: id, type: ChatEnum.private });
-    const chat = await this.em.findOneOrFail(ChatEntity, {
-      where: { title: id, type: ChatEnum.private },
-    });
-
-    await this.em.insert(ChatKeyEntity, {
-      chatId: chat.id,
-      userId: id,
-    });
 
     return this.login(newUser.id!, payload.encryptionUserAgent);
   }
