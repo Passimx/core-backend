@@ -9,13 +9,15 @@ import { UserEntity } from '../database/entities/user.entity';
 import { AuthService } from '../auth/services/auth.service';
 import { TokenType } from '../auth/types/token.type';
 import { CryptoUtils } from '../../common/utils/crypto.utils';
+import { PushSubscriptionService } from '../push-subscription/push-subscription.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
-    private readonly wsServer: WsServer,
     private readonly em: EntityManager,
+    private readonly wsServer: WsServer,
     private readonly authService: AuthService,
+    private readonly pushSubscriptionService: PushSubscriptionService,
   ) {}
 
   public async onMessage(socket: ClientSocket, body: SendMessageDto) {
@@ -73,6 +75,15 @@ export class MessagesService {
 
         await this.em.update(UserEntity, { id }, payload);
         this.wsServer.toUserRoom(id!).emit(EventsEnum.UPDATE_USER, data);
+
+        await this.pushSubscriptionService.sendNotification(id!, {
+          icon: 'https://passimx.com/assets/256-BNWfayz6.png',
+          title: 'Уведомление',
+          body: 'Обновление пользователя',
+          // requireInteraction: true,
+          // silent: true,
+          data: { url: '/' },
+        });
 
         break;
       case EventsEnum.VERIFY:

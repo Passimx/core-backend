@@ -43,29 +43,26 @@ export class AuthService {
     const newUser: Partial<UserEntity> = { id, ...payload };
     await this.em.insert(UserEntity, newUser);
 
-    return this.login(newUser.id!, payload.encryptionUserAgent);
+    return this.login({ ...payload, userId: id });
   }
 
   public async login(
-    userId: string,
-    encryptionUserAgent: string,
+    session: Partial<SessionEntity>,
   ): Promise<TokenDto | null> {
-    const user = await this.em.findOne(UserEntity, { where: { id: userId } });
+    const user = await this.em.findOne(UserEntity, {
+      where: { id: session.userId },
+    });
     if (!user) return null;
 
-    const session: Partial<SessionEntity> = {
-      userId,
-      encryptionUserAgent,
-    };
     await this.em.insert(SessionEntity, session);
 
     const payload: TokenType = {
       sessionId: session.id!,
-      userId,
+      userId: session.userId!,
     };
 
     const token = await this.jwtService.signAsync(payload);
-    const userData = await this.getMe(userId);
+    const userData = await this.getMe(session.userId);
 
     return {
       token,
@@ -74,7 +71,9 @@ export class AuthService {
     };
   }
 
-  public async getMe(userId: string) {
+  public async getMe(userId?: string) {
+    if (!userId) return null;
+
     const user = await this.em.findOne(UserEntity, {
       where: { id: userId },
       relations: { sessions: true },

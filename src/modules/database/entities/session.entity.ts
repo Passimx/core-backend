@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserEntity } from './user.entity';
+import { PushSubscriptionPayload } from '../../push-subscription/types/push-subscription.type';
 
 @Entity({ name: 'sessions' })
 export class SessionEntity {
@@ -22,6 +23,12 @@ export class SessionEntity {
 
   @Column({ name: 'is_online', type: 'boolean', default: false })
   readonly isOnline!: boolean;
+
+  @Column({ name: 'lang', type: 'varchar', length: 2 ** 1, default: 'en' })
+  readonly lang: string;
+
+  @Column({ name: 'push_subscription_payload', type: 'jsonb', nullable: true })
+  readonly pushSubscriptionPayload: PushSubscriptionPayload | null;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   readonly updatedAt: Date;

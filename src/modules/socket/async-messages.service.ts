@@ -37,20 +37,17 @@ export class AsyncMessagesService {
         break;
       case EventsEnum.LOGIN:
         const seedPhraseHash = data.seedPhraseHash;
-        if (!seedPhraseHash?.length || !data.id?.length) {
+        if (!seedPhraseHash?.length || !data.userId?.length) {
           response = null;
           break;
         }
 
-        if (sessions.find((session) => session.userId === data.id)) {
+        if (sessions.find((session) => session.userId === data.userId)) {
           response = null;
           break;
         }
 
-        response = await this.authService.login(
-          data.id,
-          data.encryptionUserAgent,
-        );
+        response = await this.authService.login(data);
 
         break;
       case EventsEnum.CREATE_USER:

@@ -9,7 +9,7 @@ export const Envs = {
   app: {
     host: '0.0.0.0',
     socketPort: NumbersUtils.toNumberOrDefault(
-      process.env.NOTIFICATION_SERVICE_SOCKET_PORT_NOTIFICATIONT,
+      process.env.NOTIFICATION_SERVICE_SOCKET_PORT_NOTIFICATION,
       7022,
     ),
     pingTime: NumbersUtils.toNumberOrDefault(process.env.PING_TIME, 25000),
@@ -18,6 +18,10 @@ export const Envs = {
       7021,
     ),
     appSalt: 'sha256',
+
+    mail: process.env.MAIL_FOR_VAPID_KEY ?? '',
+    publicVapidKey: process.env.PUBLIC_VAPID_KEY ?? '',
+    privateVapidKey: process.env.PRIVATE_VAPID_KEY ?? '',
   },
   database: {
     host: process.env.PG_HOST,

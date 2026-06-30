@@ -33,9 +33,8 @@ export class UserEntity {
     name: 'rsa_public_key',
     type: 'varchar',
     length: 2 ** 12,
-    nullable: true,
   })
-  readonly rsaPublicKey?: string;
+  readonly rsaPublicKey: string;
 
   @Column({ name: 'seed_phrase_hash', type: 'varchar', length: 2 ** 6 })
   readonly seedPhraseHash: string;
@@ -44,9 +43,8 @@ export class UserEntity {
     name: 'encrypted_rsa_private_key',
     type: 'varchar',
     length: 2 ** 14,
-    nullable: true,
   })
-  readonly encryptedRsaPrivateKey?: string;
+  readonly encryptedRsaPrivateKey: string;
 
   @Column({
     name: 'auto_terminate_session',

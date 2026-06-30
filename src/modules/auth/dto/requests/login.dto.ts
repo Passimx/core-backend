@@ -1,6 +1,17 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { PushSubscriptionPayload } from '../../../push-subscription/types/push-subscription.type';
 
 export class LoginDto {
+  @IsOptional()
+  @IsObject()
+  readonly pushSubscriptionPayload?: PushSubscriptionPayload;
+
   @IsString()
   @MaxLength(2 ** 12)
   @MinLength(2)
@@ -14,5 +25,5 @@ export class LoginDto {
   @IsString()
   @MaxLength(2 ** 7)
   @MinLength(2)
-  readonly id!: string;
+  readonly userId!: string;
 }

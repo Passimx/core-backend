@@ -1,10 +1,9 @@
 import { EventsEnum } from '../../types/event.enum';
 import { LoginDto } from '../../../auth/dto/requests/login.dto';
 import { UserEntity } from '../../../database/entities/user.entity';
+import { SessionEntity } from '../../../database/entities/session.entity';
 
-export type CreateUserType = Partial<UserEntity> & {
-  encryptionUserAgent: string;
-};
+export type CreateUserType = Partial<UserEntity & SessionEntity>;
 
 type GetConnectionRsaPublicKeyString = {
   event: EventsEnum.GET_CONNECTION_RSA_PUBLIC_KEY_STRING;
