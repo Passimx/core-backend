@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { TokenType } from '../types/token.type';
+import { UserTokenType } from '../types/user-token.type';
 import { EntityManager } from 'typeorm';
 import { SessionEntity } from '../../database/entities/session.entity';
 import { UserEntity } from '../../database/entities/user.entity';
 import { TokenDto } from '../dto/requests/token.dto';
-import { CryptoUtils } from '../../../common/utils/crypto.utils';
-import { CreateUserType } from '../../socket/dto/requests/send-async-message.dto';
+import { CreateUserType } from '../../socket/types/request/send-async-message.type';
+import { CryptoService } from '../../../@passimx/services/crypto.service';
 
 @Injectable()
 export class AuthService {
@@ -15,9 +15,17 @@ export class AuthService {
     private readonly em: EntityManager,
   ) {}
 
-  async verifyTokenAsync(token: string): Promise<TokenType | undefined> {
+  async onModuleInit(): Promise<void> {
+    await this.em.update(
+      SessionEntity,
+      { isOnline: true },
+      { isOnline: false },
+    );
+  }
+
+  async verifyTokenAsync(token: string): Promise<UserTokenType | undefined> {
     try {
-      const payload = await this.jwtService.verifyAsync<TokenType>(token);
+      const payload = await this.jwtService.verifyAsync<UserTokenType>(token);
 
       const session = await this.em.findOne(SessionEntity, {
         where: {
@@ -35,7 +43,7 @@ export class AuthService {
   }
 
   public async createUser(payload: CreateUserType) {
-    const id = CryptoUtils.getHash(payload.rsaPublicKey!);
+    const id = CryptoService.getHash(payload.rsaPublicKey!);
     const user = await this.em.findOne(UserEntity, { where: { id: id } });
 
     if (user) return null;
@@ -56,7 +64,7 @@ export class AuthService {
 
     await this.em.insert(SessionEntity, session);
 
-    const payload: TokenType = {
+    const payload: UserTokenType = {
       sessionId: session.id!,
       userId: session.userId!,
     };

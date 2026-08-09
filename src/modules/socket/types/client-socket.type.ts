@@ -1,18 +1,18 @@
 import { Envs } from '../../../common/envs/envs';
 import { WsServer } from '../raw/socket-server';
-import { TokenType } from '../../auth/types/token.type';
-import { EventsEnum } from './event.enum';
+import { UserTokenType } from '../../auth/types/user-token.type';
 import { randomUUID } from 'node:crypto';
 import { EntityManager, In } from 'typeorm';
 import { SessionEntity } from '../../database/entities/session.entity';
-import { AuthService } from '../../auth/services/auth.service';
+import { ResponseEventsEnum } from './response/response.events.enum';
 
 export class CustomWebSocketClient {
   public id: string;
-  public chatNames: Set<string>;
-  public sessions: Map<string, TokenType>; // sessionId -> TokenType[]
+  public channels: Set<string>;
+  public listenChannelActions: Set<string>;
+  public sessions: Map<string, UserTokenType>; // sessionId -> UserTokenType[]
 
-  public rsaPublicKeyString: string | null;
+  // public rsaPublicKeyString: string | null;
   private pingTimeout: NodeJS.Timeout | null;
 
   constructor(
@@ -21,38 +21,42 @@ export class CustomWebSocketClient {
     private readonly em: EntityManager,
   ) {
     this.id = this.createConnectionId(wsServer);
-    this.chatNames = new Set<string>();
-    this.sessions = new Map<string, TokenType>();
+    this.channels = new Set<string>();
+    this.listenChannelActions = new Set<string>();
+    this.sessions = new Map<string, UserTokenType>();
     this.pingTimeout = null;
   }
 
-  public async verify(tokenPayloads: TokenType[], authService: AuthService) {
-    const newSessions = tokenPayloads.filter((session) => {
-      const { userId, sessionId } = session;
-      if (this.sessions.has(sessionId)) return false;
-
-      this.sessions.set(sessionId, session);
-      this.wsServer.joinUserRoom(this.socket, userId);
-      return true;
-    });
-
-    if (!newSessions.length) return;
-
-    const sessionIds = newSessions.map(({ sessionId }) => sessionId);
-    await this.em.update(
-      SessionEntity,
-      { id: In(sessionIds) },
-      { isOnline: true },
-    );
-
-    for (const session of newSessions) {
-      const user = await authService.getMe(session.userId);
-
-      this.wsServer
-        .toUserRoom(session.userId)
-        .emit(EventsEnum.UPDATE_USER, user);
-    }
-  }
+  // public async verify(
+  //   tokenPayloads: UserTokenType[],
+  //   authService: AuthService,
+  // ) {
+  //   const newSessions = tokenPayloads.filter((session) => {
+  //     const { userId, sessionId } = session;
+  //     if (this.sessions.has(sessionId)) return false;
+  //
+  //     this.sessions.set(sessionId, session);
+  //     this.wsServer.joinUserRoom(this.socket, userId);
+  //     return true;
+  //   });
+  //
+  //   if (!newSessions.length) return;
+  //
+  //   const sessionIds = newSessions.map(({ sessionId }) => sessionId);
+  //   await this.em.update(
+  //     SessionEntity,
+  //     { id: In(sessionIds) },
+  //     { isOnline: true },
+  //   );
+  //
+  //   for (const session of newSessions) {
+  //     const user = await authService.getMe(session.userId);
+  //
+  //     this.wsServer
+  //       .toUserRoom(session.userId)
+  //       .emit({ event: EventsEnum.UPDATE_USER, data: user });
+  //   }
+  // }
 
   public static createInstance(
     wsServer: WsServer,
@@ -65,12 +69,12 @@ export class CustomWebSocketClient {
 
     wsServer.joinConnection(socket);
     instance.setPingTimeout();
-    instance.emit(EventsEnum.PONG);
+    wsServer.toConnection(socket.id).emit({ event: ResponseEventsEnum.PONG });
   }
 
   public createConnectionId(wsServer: WsServer): string {
     const id = randomUUID();
-    const connection = wsServer.connections.get(id);
+    const connection = wsServer.getConnection(id);
     if (!connection) return id;
 
     return this.createConnectionId(wsServer);
@@ -79,11 +83,7 @@ export class CustomWebSocketClient {
   public setPingTimeout(): void {
     this.clearPingTimeout();
     this.pingTimeout = setTimeout(() => {
-      this.socket.close();
-
-      this.sessions?.forEach(({ userId }) =>
-        this.wsServer?.leaveConnection(this.socket, userId),
-      );
+      this.leaveConnection();
     }, Envs.app.pingTime) as unknown as NodeJS.Timeout;
   }
 
@@ -99,20 +99,25 @@ export class CustomWebSocketClient {
         { isOnline: false },
       );
 
-      for (const { userId } of sessions) {
-        const sessionsFromDb = await this.em.find(SessionEntity, {
-          where: { userId },
-          order: { updatedAt: 'DESC' },
-        });
-        this.wsServer.toUserRoom(userId).emit(EventsEnum.UPDATE_USER, {
-          id: userId,
-          sessions: sessionsFromDb,
-        });
-
-        this.wsServer.leaveConnection(this.socket, userId);
-      }
+      // for (const { userId } of sessions) {
+      //   const sessionsFromDb = await this.em.find(SessionEntity, {
+      //     where: { userId },
+      //     order: { updatedAt: 'DESC' },
+      //   });
+      //   this.wsServer.toUserRoom(userId).emit({
+      //     event: EventsEnum.UPDATE_USER,
+      //     data: {
+      //       id: userId,
+      //       sessions: sessionsFromDb,
+      //     },
+      //   });
+      //
+      //   this.wsServer.leaveUserRoom(this.socket, userId);
+      // }
     }
 
+    this.clearPingTimeout();
+    this.wsServer.leaveConnection(this.socket);
     this.socket.close();
   }
 
@@ -123,24 +128,20 @@ export class CustomWebSocketClient {
     }
   }
 
-  public emit(event: EventsEnum, data?: unknown) {
-    this.socket.send(JSON.stringify({ event, data }));
-  }
-
-  public logout(deletedSessions: SessionEntity[]) {
-    const sessions = Array.from(this.sessions.values());
-
-    for (const deletedSession of deletedSessions) {
-      const currentSession = sessions.find(
-        (session) => session.sessionId === deletedSession.id,
-      );
-      if (!currentSession) return;
-
-      this.emit(EventsEnum.LOGOUT, { sessionId: currentSession.sessionId });
-      this.wsServer.leaveUserRoom(this.socket, currentSession.userId);
-      this.sessions.delete(currentSession.sessionId);
-    }
-  }
+  // public logout(deletedSessions: SessionEntity[]) {
+  //   const sessions = Array.from(this.sessions.values());
+  //
+  //   for (const deletedSession of deletedSessions) {
+  //     const currentSession = sessions.find(
+  //       (session) => session.sessionId === deletedSession.id,
+  //     );
+  //     if (!currentSession) return;
+  //
+  //     this.emit(EventsEnum.LOGOUT, { sessionId: currentSession.sessionId });
+  //     this.wsServer.leaveUserRoom(this.socket, currentSession.userId);
+  //     this.sessions.delete(currentSession.sessionId);
+  //   }
+  // }
 }
 
 export class CustomWebSocketClass {

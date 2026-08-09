@@ -1,4 +1,4 @@
-export type TokenType = {
+export type UserTokenType = {
   sessionId: string;
   userId: string;
 };

@@ -17,7 +17,6 @@ export const Envs = {
       process.env.NOTIFICATION_SERVICE_APP_PORT,
       7021,
     ),
-    appSalt: 'sha256',
 
     mail: process.env.MAIL_FOR_VAPID_KEY ?? '',
     publicVapidKey: process.env.PUBLIC_VAPID_KEY ?? '',

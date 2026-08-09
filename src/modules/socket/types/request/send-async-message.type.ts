@@ -1,4 +1,4 @@
-import { EventsEnum } from '../../types/event.enum';
+import { EventsEnum } from '../event.enum';
 import { LoginDto } from '../../../auth/dto/requests/login.dto';
 import { UserEntity } from '../../../database/entities/user.entity';
 import { SessionEntity } from '../../../database/entities/session.entity';
@@ -25,7 +25,7 @@ type GetApps = {
   data: unknown;
 };
 
-export type SendAsyncMessageDto =
+export type SendAsyncMessageType =
   | GetConnectionRsaPublicKeyString
   | LoginType
   | CreateUser
